@@ -169,8 +169,6 @@ def generate_ad_script_prompt():
         st.session_state['prompt'] = prompt
         st.session_state['script'] = script
 
-
-
 def generate_ai_audio():
     if st.session_state.group != "1":
         pattern = r'(?:\[Narrator\]?[:]?|Narrator:)\s*([^\[]*)'
@@ -198,8 +196,8 @@ def generate_ai_audio():
         audio_bytes = base64.b64decode(response_dict["audio_base64"])
 
         # Process the audio with pydub to add silence as needed
-        # original_audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
-        # modified_audio = AudioSegment.silent(duration=0)  # Start with an empty audio segment
+        original_audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
+        modified_audio = AudioSegment.silent(duration=0)  # Start with an empty audio segment
 
         sentences = script.splitlines()
         char_index = 0
@@ -212,20 +210,20 @@ def generate_ai_audio():
             # Extract the audio for this sentence
             start_ms = sentence_start_time * 1000
             end_ms = sentence_end_time * 1000
-            # sentence_audio = original_audio[start_ms:end_ms]
+            sentence_audio = original_audio[start_ms:end_ms]
 
-            # # Calculate the silence duration needed to make the total 5 seconds
-            # silence_duration = max(0, 5000 - int(duration * 1000))
+            # Calculate the silence duration needed to make the total 5 seconds
+            silence_duration = max(0, 5000 - int(duration * 1000))
 
-            # # Add sentence audio and then add the calculated silence
-            # modified_audio += sentence_audio + AudioSegment.silent(duration=silence_duration)
+            # Add sentence audio and then add the calculated silence
+            modified_audio += sentence_audio + AudioSegment.silent(duration=silence_duration)
             
             char_index += len(sentence) + 1  # +1 to account for the newline character
         
         # # Export the modified audio to a byte stream
-        # output_io = io.BytesIO()
-        # modified_audio.export(output_io, format="mp3")
-        # output_audio_bytes = output_io.getvalue()
+        output_io = io.BytesIO()
+        modified_audio.export(output_io, format="mp3")
+        output_audio_bytes = output_io.getvalue()
 
         # Upload modified audio to OSS
         audio_name = time.strftime("%Y%m%d%H%M%S") + str(random.randint(1, 100)) + '.mp3'
@@ -236,10 +234,7 @@ def generate_ai_audio():
             'audio_url': oss_bucket.sign_url('GET', audio_name, 180),
             'narrator_timestamp': [5.0 for _ in sentences],  # Each sentence is now 5 seconds long
         }
-        st.audio(audio_bytes)
-
-
-
+        st.audio(output_audio_bytes)
 
 
 def generate_ai_video():

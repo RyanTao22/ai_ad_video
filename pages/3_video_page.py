@@ -2,7 +2,6 @@ import streamlit as st
 from helpers import update_responses_df, get_last_index,initialize_responses_df
 from helpers import generate_ad_script_prompt,generate_ai_audio, generate_ai_video, add_audio_to_video
 
-
 def play_video():
     
     st.title("Watch the Advertisement Video")

@@ -1,0 +1,9 @@
+openai
+datetime
+pytz
+pymysql
+sqlalchemy
+requests
+oss2
+pydub
+
