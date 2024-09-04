@@ -25,6 +25,11 @@ sys.path.append(currentPath+'ffmpeg')
 sys.path.append(currentPath+'ffprobe')
 from pydub import AudioSegment
 
+import moviepy.editor as mp
+from io import BytesIO
+
+import tempfile
+
 
 def initialize_responses_df():
     if 'responses_df' not in st.session_state:
@@ -194,149 +199,197 @@ def generate_ai_audio():
         json_string = response_audio.content.decode("utf-8")
         response_dict = json.loads(json_string)
         audio_bytes = base64.b64decode(response_dict["audio_base64"])
-        st.audio(audio_bytes)
-
-        # Process the audio with pydub to add silence as needed
-        original_audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
-        modified_audio = AudioSegment.silent(duration=0)  # Start with an empty audio segment
+        
 
         sentences = script.splitlines()
         char_index = 0
+        start_timestamps = []
+        durations = []
         
         for sentence in sentences:
             sentence_start_time = response_dict['alignment']['character_start_times_seconds'][char_index]
             sentence_end_time = response_dict['alignment']['character_end_times_seconds'][char_index + len(sentence) - 1]
             duration = sentence_end_time - sentence_start_time
-
-            # Extract the audio for this sentence
-            start_ms = sentence_start_time * 1000
-            end_ms = sentence_end_time * 1000
-            sentence_audio = original_audio[start_ms:end_ms]
-
-            # Calculate the silence duration needed to make the total 5 seconds
-            silence_duration = max(0, 5000 - int(duration * 1000))
-
-            # Add sentence audio and then add the calculated silence
-            modified_audio += sentence_audio + AudioSegment.silent(duration=silence_duration)
+            
+            start_timestamps.append(sentence_start_time)
+            durations.append(duration)
             
             char_index += len(sentence) + 1  # +1 to account for the newline character
         
         # # Export the modified audio to a byte stream
-        output_io = io.BytesIO()
-        modified_audio.export(output_io, format="mp3")
-        output_audio_bytes = output_io.getvalue()
 
         # Upload modified audio to OSS
         audio_name = time.strftime("%Y%m%d%H%M%S") + str(random.randint(1, 100)) + '.mp3'
-        oss_bucket.put_object(audio_name, output_audio_bytes)
+        oss_bucket.put_object(audio_name, audio_bytes)
         
         st.session_state.audio_dict = {
             'audio_name': audio_name,
+            'audio_bytes': audio_bytes, # audio_bytes = base64.b64decode(response_dict["audio_base64"])
             'audio_url': oss_bucket.sign_url('GET', audio_name, 180),
-            'narrator_timestamp': [5.0 for _ in sentences],  # Each sentence is now 5 seconds long
+
+            'narrator_start_timestamps': start_timestamps,  # A list records duration of each sentence
+            'narrator_durations': durations
         }
-        st.audio(output_audio_bytes)
+        st.audio(audio_bytes)
 
 
-def generate_ai_video():
-    if st.session_state.group != "1":
-        # Prepare the scene's script
-        script = st.session_state.script+'\n'
-        pattern = r'\[Scene: last (\d+) seconds: (.*?)\]'
-        matches = re.findall(pattern, script)
-        formatted_scenes = [[int(seconds), description] for seconds, description in matches]
-        if len(formatted_scenes) == len(st.session_state.audio_dict['narrator_timestamp']):
-            formatted_scenes = [[int(st.session_state.audio_dict['narrator_timestamp'][i]), description] for i, [seconds, description] in enumerate(formatted_scenes)]
+# def generate_ai_video():
+#     if st.session_state.group != "1":
+#         # Prepare the scene's script
+#         script = st.session_state.script+'\n'
+#         pattern = r'\[Scene: last (\d+) seconds: (.*?)\]'
+#         matches = re.findall(pattern, script)
+#         formatted_scenes = [[int(seconds), description] for seconds, description in matches]
+#         if len(formatted_scenes) == len(st.session_state.audio_dict['narrator_durations']):
+#             formatted_scenes = [[st.session_state.audio_dict['narrator_durations'][i], description] for i, [seconds, description] in enumerate(formatted_scenes)]
         
-        # Generate Video with ai video api
-        url = "https://api.aivideoapi.com/runway/generate/text"
+#         # Generate Video with ai video api
+#         url = "https://api.aivideoapi.com/runway/generate/text"
 
-        responses = []
-        response_urls = []
+#         responses = []
+#         response_urls = []
 
-        for seconds, description in formatted_scenes:
-            payload = {
-            "text_prompt": "masterpiece, cinematic, "+ description,
-            "model": "gen3",
-            "width": 1344,
-            "height": 768,
-            "motion": 5,
-            "seed": 0,
-            "upscale": True,
-            "interpolate": True,
-            "callback_url": "",
-            "time": int(seconds)
-            }
+#         for seconds, description in formatted_scenes:
+#             payload = {
+#             "text_prompt": "masterpiece, cinematic, "+ description,
+#             "model": "gen3",
+#             "width": 1344,
+#             "height": 768,
+#             "motion": 5,
+#             "seed": 0,
+#             "upscale": True,
+#             "interpolate": True,
+#             "callback_url": "",
+#             "time": 5 if seconds <= 5 else 10
+#             }
 
         
-            headers = {
-                "accept": "application/json",
-                "content-type": "application/json",
-                "Authorization": st.secrets['aivideoapi_token'],
-            }
+#             headers = {
+#                 "accept": "application/json",
+#                 "content-type": "application/json",
+#                 "Authorization": st.secrets['aivideoapi_token'],
+#             }
 
-            response = requests.post(url, json=payload, headers=headers)
-            responses.append(response.json())
+#             response = requests.post(url, json=payload, headers=headers)
+#             responses.append(response.json())
         
-        video_urls = []
+#         video_urls = []
+#         st.session_state.video_urls = video_urls
 
-        for response in responses:
-            uuid = response['uuid']
-            status_url = f"https://api.aivideoapi.com/status?uuid={uuid}"
+#         for response in responses:
+#             st.dataframe(pd.DataFrame({'uuid': [response['uuid']]}))
+#             uuid = response['uuid']
+#             status_url = f"https://api.aivideoapi.com/status?uuid={uuid}"
 
-            headers_status = {
-                "accept": "application/json",
-                "Authorization": st.secrets['aivideoapi_token']
-            }
+#             headers_status = {
+#                 "accept": "application/json",
+#                 "Authorization": st.secrets['aivideoapi_token']
+#             }
 
-            while True:
-                response_status = requests.get(status_url, headers=headers_status)
-                status_json = response_status.json()
+#             while True:
+#                 response_status = requests.get(status_url, headers=headers_status)
+#                 status_json = response_status.json()
                 
-                if status_json["status"] == "success":
-                    video_urls.append(status_json["url"])
-                    break
-                elif status_json["status"] in ["in queue", "submitted"]:
-                    time.sleep(5)  # Wait and recheck the status
-                else:
-                    print(f"Error generating video: {status_json}")
-                    break
-
+#                 if status_json["status"] == "success":
+#                     video_urls.append(status_json["url"])
+#                     break
+#                 elif status_json["status"] in ["in queue", "submitted"]:
+#                     time.sleep(5)  # Wait and recheck the status
+#                 else:
+#                     print(f"Error generating video: {status_json}")
+#                     break
         
+#         if len(video_urls) == len(responses):
+#             st.session_state.video_urls = video_urls
+          
 
 def add_audio_to_video():
-    audio_url = st.session_state.audio_dict['audio_url']
-    video_url = st.session_state.video_url
-    creatomate_options = {
-        # The ID of the template that you created in the template editor
-        'template_id': st.secrets['creatomate_template_id'],
+    # 获取音频URL和视频URL
+    #audio_url = st.session_state.audio_dict['audio_url']
+    audio_bytes = st.session_state.audio_dict['audio_bytes']  # 假设已经从base64解码
+    audio_start_timestamps = st.session_state.audio_dict['narrator_start_timestamps']  # 每句话的开始时间戳
+    
+    #video_urls = st.session_state.video_urls\
+    video_urls = ['https://files.aivideoapi.com/video/20240904/ac7ded0d-9461-4514-a899-5e2925474b16.mp4',
+                  'https://files.aivideoapi.com/video/20240902/3a7a6ee0-3afc-4594-a01f-574858b88d03.mp4',
+                  'https://files.aivideoapi.com/video/20240902/0e0b3ba2-0a6b-4915-a29a-296711e31ba5.mp4',
+                  'https://files.aivideoapi.com/video/20240902/318cefa5-48eb-4e33-939b-ce991dd72395.mp4',
+                  'https://files.aivideoapi.com/video/20240816/ab4ba7da-1740-41dc-a5a7-3fc516829adf.mp4',
+                  'https://files.aivideoapi.com/video/20240815/85d1d6e9-1f95-40cd-a4fc-6237d8841773.mp4',
+                  'https://files.aivideoapi.com/video/20240902/0e0b3ba2-0a6b-4915-a29a-296711e31ba5.mp4',
+                  'https://files.aivideoapi.com/video/20240902/318cefa5-48eb-4e33-939b-ce991dd72395.mp4',
+                  'https://files.aivideoapi.com/video/20240816/ab4ba7da-1740-41dc-a5a7-3fc516829adf.mp4',
+                  'https://files.aivideoapi.com/video/20240815/85d1d6e9-1f95-40cd-a4fc-6237d8841773.mp4',
+                  'https://files.aivideoapi.com/video/20240904/ac7ded0d-9461-4514-a899-5e2925474b16.mp4',
+                  'https://files.aivideoapi.com/video/20240902/3a7a6ee0-3afc-4594-a01f-574858b88d03.mp4',
+                  'https://files.aivideoapi.com/video/20240902/0e0b3ba2-0a6b-4915-a29a-296711e31ba5.mp4',
+                  'https://files.aivideoapi.com/video/20240902/318cefa5-48eb-4e33-939b-ce991dd72395.mp4']
+    video_urls = video_urls[0:len(audio_start_timestamps)]
+    if not video_urls:
+        return  # 没有视频则返回
+    
+    # 将音频加载为音频剪辑（使用临时文件）
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
+        temp_audio_file.write(audio_bytes)
+        temp_audio_file.flush()
+        audio_clip = mp.AudioFileClip(temp_audio_file.name)
 
-        # Modifications that you want to apply to the template
-        'modifications': {
-            'Video': video_url,
-            "Audio": audio_url,
-            "BGM": "https://www.chosic.com/wp-content/uploads/2021/06/Sweet(chosic.com).mp3"
-        },
-    }
-
-    creatomate_response = requests.post(
-        'https://api.creatomate.com/v1/renders',
-        headers={
-            'Authorization': f"Bearer {st.secrets['creatomate_token']}",
-            'Content-Type': 'application/json',
-        },
-        json=creatomate_options
-    )
-
-    final_clip_json =creatomate_response.content.decode('utf8').replace("'", '"')
-    final_clip_json = json.loads(final_clip_json)
-    final_clip = final_clip_json[0]['url']
-
-    while requests.get(final_clip).status_code == 404:
-        time.sleep(1)
-    st.video(final_clip)
-    #st.write(video_url['videos'][0]['resultUrl'])
-    index = get_last_index()
-    st.session_state.responses_df.loc[index, 'Video_url'] = final_clip
-
-#     return url
+    # 视频片段容器，用来合并所有视频
+    final_clips = []
+    
+    for i, video_url in enumerate(video_urls):
+        # 下载并加载视频文件
+        video_response = requests.get(video_url)
+        
+        # 使用临时文件保存视频
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video_file:
+            temp_video_file.write(video_response.content)
+            temp_video_file.flush()
+            video_clip = mp.VideoFileClip(temp_video_file.name)
+        
+        # 获取对应的音频起始时间
+        start_time = audio_start_timestamps[i]
+        
+        # 剪辑视频以与音频对齐
+        video_duration = video_clip.duration
+        audio_start = start_time
+        if i + 1 < len(audio_start_timestamps):
+            audio_end = audio_start_timestamps[i + 1]
+        else:
+            audio_end = audio_clip.duration
+        
+        # 截取音频段
+        sentence_audio = audio_clip.subclip(audio_start, audio_end)
+        
+        # 使视频的时长与音频相同
+        video_clip = video_clip.subclip(0, min(video_duration, sentence_audio.duration))
+        
+        # 将音频片段添加到视频
+        final_video = video_clip.set_audio(sentence_audio)
+        
+        # 添加到视频片段列表
+        final_clips.append(final_video)
+    
+    # 合并所有视频片段
+    final_combined_video = mp.concatenate_videoclips(final_clips)
+    
+    # 使用临时文件保存最终视频
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_final_video_file:
+        final_combined_video.write_videofile(temp_final_video_file.name, codec='libx264', audio_codec='aac')
+        
+        # 将临时文件写入到BytesIO
+        video_buffer = BytesIO()
+        with open(temp_final_video_file.name, 'rb') as f:
+            video_buffer.write(f.read())
+        
+        video_buffer.seek(0)  # 将指针回到开始位置以进行上传
+    
+    # 上传到OSS
+    video_name = time.strftime("%Y%m%d%H%M%S") + str(random.randint(1, 100)) + '.mp4'
+    oss_bucket.put_object(video_name, video_buffer)
+    
+    # 假设这里是保存最终视频的URL逻辑
+    final_video_url = oss_bucket.sign_url('GET', video_name, 180)
+    last_index = get_last_index()
+    st.session_state.responses_df.loc[last_index, 'Video_url'] = final_video_url
+    st.video(final_video_url)

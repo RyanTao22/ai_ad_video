@@ -6,4 +6,5 @@ sqlalchemy
 requests
 oss2
 pydub
+moviepy
 

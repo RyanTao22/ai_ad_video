@@ -1,6 +1,7 @@
 import streamlit as st
 from helpers import update_responses_df, get_last_index,initialize_responses_df
-from helpers import generate_ad_script_prompt,generate_ai_audio, generate_ai_video, add_audio_to_video
+from helpers import generate_ad_script_prompt,generate_ai_audio,  add_audio_to_video
+#from helpers import generate_ai_video
 
 def play_video():
     
@@ -16,8 +17,8 @@ def play_video():
     else:
         generate_ad_script_prompt()
         generate_ai_audio()
-        # generate_ai_video()
-        # url1 = add_audio_to_video()
+        #generate_ai_video()
+        add_audio_to_video()
         # st.video(url1)
 
 
@@ -25,7 +26,7 @@ def play_video():
         st.switch_page("pages/4_score_video_page.py")  # 跳转到评分页面
 
 if __name__ == "__main__":
-    if 'responses_df' not in st.session_state:
+    if 'responses_df' not in st.session_state or st.session_state.product_choice_complete == False:
         initialize_responses_df()
         st.switch_page("pages/1_survey_page.py")
     
