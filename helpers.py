@@ -194,6 +194,7 @@ def generate_ai_audio():
         json_string = response_audio.content.decode("utf-8")
         response_dict = json.loads(json_string)
         audio_bytes = base64.b64decode(response_dict["audio_base64"])
+        st.audio(audio_bytes)
 
         # Process the audio with pydub to add silence as needed
         original_audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
@@ -227,7 +228,7 @@ def generate_ai_audio():
 
         # Upload modified audio to OSS
         audio_name = time.strftime("%Y%m%d%H%M%S") + str(random.randint(1, 100)) + '.mp3'
-        # oss_bucket.put_object(audio_name, output_audio_bytes)
+        oss_bucket.put_object(audio_name, output_audio_bytes)
         
         st.session_state.audio_dict = {
             'audio_name': audio_name,
