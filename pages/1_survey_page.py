@@ -16,7 +16,7 @@ def survey_page():
 
     if st.button("Save"):
         LA_time = datetime.datetime.now(pytz.timezone('America/Los_Angeles')).strftime('%Y-%m-%d %H:%M:%S')
-        row_data = [LA_time, None, age, gender, education, income, ethnicity, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+        row_data = [LA_time, "Group"+st.session_state.group, age, gender, education, income, ethnicity, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
         add_row_to_responses_df(row_data)
         st.session_state.demographics_complete = True
         st.switch_page("pages/2_product_choice_page.py")  # 跳转到产品选择页面

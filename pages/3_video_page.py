@@ -9,17 +9,20 @@ def play_video():
     st.write("It may take a few minutes to prepare the video. Please wait for a moment.")
     st.dataframe(st.session_state.responses_df)
 
-    if st.session_state.group == "1":
-        video_url = 'https://www.youtube.com/watch?v=9cCVWcdbAlk'
-        last_index = get_last_index()
-        update_responses_df(last_index, 'Video_url', video_url)
-        st.video(video_url)
-    else:
-        generate_ad_script_prompt()
-        generate_ai_audio()
-        #generate_ai_video()
-        add_audio_to_video()
-        # st.video(url1)
+    if st.session_state.video_complete == False:
+        if st.session_state.group == "1" :
+            video_url = 'https://www.youtube.com/watch?v=9cCVWcdbAlk'
+            last_index = get_last_index()
+            update_responses_df(last_index, 'Video_url', video_url)
+            st.video(video_url)
+            st.session_state.video_complete = True
+        else:
+            generate_ad_script_prompt()
+            generate_ai_audio()
+            #generate_ai_video()
+            add_audio_to_video()
+            st.session_state.video_complete = True
+            # st.video(url1)
 
 
     if st.button("Next"):

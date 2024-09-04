@@ -32,6 +32,7 @@ import tempfile
 
 
 def initialize_responses_df():
+    
     if 'responses_df' not in st.session_state:
         data = {
             'Timestamp_LA': [],
@@ -65,8 +66,11 @@ def initialize_responses_df():
     if 'product_choice_complete' not in st.session_state:
         st.session_state.product_choice_complete = False
 
+    if 'video_complete' not in st.session_state:
+        st.session_state.video_complete = False
+
     if 'group' not in st.session_state:
-        st.session_state.group = ""
+        st.session_state.group = np.random.choice(['1','2','3','4','5'],1,p=Group_Prob)[0]
 
     if 'prompt' not in st.session_state:
         st.session_state.prompt = ""
@@ -97,8 +101,8 @@ def get_gpt_response(prompt, using_model="gpt-4o"):
 
 def generate_ad_script_prompt():
     #st.title("Generated Ad Script Prompt for Head & Shoulders Shampoo")
-    group = np.random.choice(['1','2','3','4','5'],1,p=Group_Prob)[0]
-    st.session_state['group'] = group
+    group = st.session_state.group
+    #st.session_state['group'] = group
     
     if not st.session_state.responses_df.empty:
         
@@ -161,7 +165,7 @@ def generate_ad_script_prompt():
         # st.write("Group"+group+": "+instrument)
         # st.markdown(prompt.replace('$','\$'))
         last_index = get_last_index()
-        st.session_state.responses_df.loc[last_index, 'Test_Group'] = "Group"+group
+        
         st.session_state.responses_df.loc[last_index, 'Prompt'] = prompt
         # st.write("Script:")
 
