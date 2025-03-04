@@ -310,7 +310,7 @@ def generate_ai_audio():
 def add_audio_to_video():
     # 获取音频URL和视频URL
     #audio_url = st.session_state.audio_dict['audio_url']
-    audio_bytes = st.session_state.audio_dict['audio_bytes']  # 假设已经从base64解码
+    audio_bytes = st.session_state.audio_dict['audio_bytes']  # 假设已从base64解码
     audio_start_timestamps = st.session_state.audio_dict['narrator_start_timestamps']  # 每句话的开始时间戳
     
     #video_urls = st.session_state.video_urls\
@@ -330,7 +330,7 @@ def add_audio_to_video():
                   'https://files.aivideoapi.com/video/20240902/318cefa5-48eb-4e33-939b-ce991dd72395.mp4']
     video_urls = video_urls[0:len(audio_start_timestamps)]
     if not video_urls:
-        return  # 没有视频则返回
+        return  # 没有则返回
     
     # 将音频加载为音频剪辑（使用临时文件）
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio_file:
@@ -392,7 +392,7 @@ def add_audio_to_video():
     video_name = time.strftime("%Y%m%d%H%M%S") + str(random.randint(1, 100)) + '.mp4'
     oss_bucket.put_object(video_name, video_buffer)
     
-    # 假设这里是保存最终视频的URL逻辑
+    # 保存最终视频的URL
     final_video_url = oss_bucket.sign_url('GET', video_name, 180)
     last_index = get_last_index()
     st.session_state.responses_df.loc[last_index, 'Video_url'] = final_video_url
